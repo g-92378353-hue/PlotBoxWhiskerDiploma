@@ -128,7 +128,7 @@
                 <div class="bg-blue-100 text-blue-700 w-10 h-10 rounded-xl flex items-center justify-center text-lg"><i class="fa-solid fa-book"></i></div>
                 <div>
                     <h2 class="font-extrabold text-lg sm:text-xl text-slate-900">Modul 1: Nota Interaktif <span class="text-xs text-blue-600 font-normal block sm:inline sm:ml-2">(Interactive Notes)</span></h2>
-                    <p class="text-xs text-slate-500">Kenali lima komponen utama Plot Box and Whisker.</p>
+                    <p class="text-xs text-slate-500">Kenali struktur lima komponen utama Plot Box and Whisker.</p>
                 </div>
             </div>
 
@@ -322,7 +322,7 @@
             </div>
 
             <!-- Panel Paparan Soalan Kuiz -->
-            <div id="quiz-question-panel" class="hidden bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-4">
+            <div id="quiz-question-panel" class="hidden bg-slate-50 p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
                 <div class="flex justify-between items-center text-xs font-bold text-slate-500">
                     <span id="quiz-question-index">Soalan 1 daripada 5</span>
                     <span id="quiz-question-score">Mata: 0/5</span>
@@ -475,9 +475,31 @@
         let lastSpokenText = "";
         let isVoicePaused = false;
 
+        // PARSER DINAMIK: Mengesan parameter URL ?module=X
+        function getModuleFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const modParam = params.get('module');
+            if (modParam) {
+                const parsed = parseInt(modParam);
+                if (parsed >= 1 && parsed <= 6) {
+                    return parsed;
+                }
+            }
+            return null;
+        }
+
+        // PENYELARAS URL: Kemas kini parameter URL semasa navigasi tanpa memuatkan semula halaman
+        function updateUrlParameter(targetModule) {
+            if (history.replaceState) {
+                const newurl = window.location.protocol + "//" + window.location.host + window.location.pathname + `?module=${targetModule}`;
+                window.history.replaceState({ path: newurl }, '', newurl);
+            }
+        }
+
         // Inisialisasi Apabila Aplikasi Dimulakan
         window.onload = function() {
             loadSavedState();
+            renderActiveModule(); // Memastikan antaramuka modul semasa dipaparkan dengan betul
             renderBadges();
             updateProgressUI();
             
@@ -491,11 +513,17 @@
             }
         };
 
-        // Memuatkan progress daripada Local Storage
+        // Memuatkan progress daripada Local Storage & Menilai Param URL
         function loadSavedState() {
             const savedData = localStorage.getItem('semai_smart_qr_cube');
             if (savedData) {
                 appState = JSON.parse(savedData);
+            }
+
+            // Parameter URL mengatasi nilai ingatan dalam local storage
+            const urlMod = getModuleFromUrl();
+            if (urlMod !== null) {
+                appState.currentModule = urlMod;
             }
         }
 
@@ -539,6 +567,9 @@
             // Kemas kini state modul
             appState.currentModule = targetModule;
             saveState();
+
+            // Kemas kini parameter URL
+            updateUrlParameter(targetModule);
 
             // Render antaramuka modul
             renderActiveModule();
@@ -1155,6 +1186,53 @@
             }
 
             drawConfetti();
+        }
+
+        // Menetapkan Semula Pencapaian Pelajar
+        function resetAllProgress() {
+            if (confirm("Adakah anda mahu memadam semua rekod XP dan pencapaian anda?")) {
+                localStorage.removeItem('semai_smart_qr_cube');
+                appState = {
+                    currentModule: 1,
+                    score: 0,
+                    unlockedBadges: [],
+                    studentName: '',
+                    noteClicks: { min: false, q1: false, median: false, q3: false, max: false },
+                    isMedianSolved: false,
+                    isQ1Solved: false,
+                    isQ3Solved: false,
+                    isOutlierSolved: false,
+                    quizCompleted: false
+                };
+                
+                // Set semula parameter URL
+                updateUrlParameter(1);
+                
+                // Bina semula paparan modul pertama
+                renderActiveModule();
+                updateProgressUI();
+                
+                // Bersihkan keadaan kuiz
+                currentQuizIndex = 0;
+                quizScore = 0;
+                document.getElementById('student-name-field').value = '';
+                document.getElementById('certificate-panel').classList.add('hidden');
+                
+                // Bersihkan panel maklum balas
+                document.getElementById('median-feedback').classList.add('hidden');
+                document.getElementById('q1-feedback').classList.add('hidden');
+                document.getElementById('q3-feedback').classList.add('hidden');
+                document.getElementById('outlier-feedback').classList.add('hidden');
+
+                // Bersihkan butang pilihan pencilan
+                document.querySelectorAll('.outlier-btn').forEach(btn => {
+                    btn.className = "outlier-btn bg-white border-2 border-slate-200 px-4 py-3 rounded-xl font-bold text-sm text-slate-700 hover:bg-slate-100 transition";
+                });
+                selectedOutliers = [];
+
+                triggerSynthSound('click');
+                executeSpeech(moduleSpeeches[1]);
+            }
         }
     </script>
 </body>
